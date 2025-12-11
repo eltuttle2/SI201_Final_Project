@@ -1,30 +1,31 @@
 import requests
 import sqlite3
 
+DB_NAME = "final_project.db"
+
 def setup_database():
     """
     sets up the database tables if they do not exist.
-    kept very simple.
     """
-    conn = sqlite3.connect("disney.db")
+    conn = sqlite3.connect(DB_NAME)
     cur = conn.cursor()
 
     # characters table
     cur.execute("""
-        create table if not exists characters (
-            id integer primary key,
-            name text,
-            image_url text
+        CREATE TABLE IF NOT EXISTS characters (
+            id INTEGER PRIMARY KEY,
+            name TEXT,
+            image_url TEXT
         );
     """)
 
     # media table
     cur.execute("""
-        create table if not exists mediaappearances (
-            media_id integer primary key autoincrement,
-            character_id integer,
-            media_type text,
-            media_title text
+        CREATE TABLE IF NOT EXISTS mediaappearances (
+            media_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            character_id INTEGER,
+            media_type TEXT,
+            media_title TEXT
         );
     """)
 
@@ -33,25 +34,19 @@ def setup_database():
 
 
 def get_existing_character_ids():
-    conn = sqlite3.connect("disney.db")
+    conn = sqlite3.connect(DB_NAME)
     cur = conn.cursor()
 
-    cur.execute("select id from characters;")
+    cur.execute("SELECT id FROM characters;")
     rows = cur.fetchall()
-
     conn.close()
 
-    # convert to a set so we can check fast
-    ids = set()
-    for row in rows:
-        ids.add(row[0])
-    return ids
+    return set(row[0] for row in rows)
 
 
 def store_characters():
     """
-    gets up to 25 characters from the disney api
-    and saves them into the database.
+    gets 25 NEW characters each run.
     """
     setup_database()
     existing = get_existing_character_ids()
@@ -60,30 +55,29 @@ def store_characters():
     page = 1
     added = 0
 
-    conn = sqlite3.connect("disney.db")
+    conn = sqlite3.connect(DB_NAME)
     cur = conn.cursor()
 
     while added < 25:
         response = requests.get(url + "?page=" + str(page))
         data = response.json()
 
-        if "data" not in data:
+        if "data" not in data or len(data["data"]) == 0:
             break
 
         for character in data["data"]:
             cid = character["_id"]
 
-            # skip if we already saved it
+            # skip if already saved
             if cid in existing:
                 continue
 
             # insert character
-            cur.execute(
-                "insert into characters (id, name, image_url) values (?, ?, ?);",
-                (cid, character.get("name"), character.get("imageUrl"))
-            )
+            cur.execute("""
+                INSERT INTO characters (id, name, image_url)
+                VALUES (?, ?, ?);
+            """, (cid, character.get("name"), character.get("imageUrl")))
 
-            # simple loop for media lists
             media_types = {
                 "films": character.get("films", []),
                 "shortFilms": character.get("shortFilms", []),
@@ -92,13 +86,12 @@ def store_characters():
                 "parkAttractions": character.get("parkAttractions", [])
             }
 
-            for m_type in media_types:
-                titles = media_types[m_type]
+            for m_type, titles in media_types.items():
                 for title in titles:
-                    cur.execute(
-                        "insert into mediaappearances (character_id, media_type, media_title) values (?, ?, ?);",
-                        (cid, m_type, title)
-                    )
+                    cur.execute("""
+                        INSERT INTO mediaappearances (character_id, media_type, media_title)
+                        VALUES (?, ?, ?);
+                    """, (cid, m_type, title))
 
             added += 1
             existing.add(cid)
@@ -111,7 +104,7 @@ def store_characters():
     conn.commit()
     conn.close()
 
-    print("stored", added, "new disney characters in disney.db")
+    print(f"Stored {added} new Disney characters in {DB_NAME}")
 
 
 if __name__ == "__main__":
