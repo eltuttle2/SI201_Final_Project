@@ -1,141 +1,126 @@
 import requests
 import sqlite3
 
-# shared db name
 DB_NAME = "final_project.db"
 
 def get_connection():
-    """return a sqlite connection to the shared db."""
     return sqlite3.connect(DB_NAME)
 
 def setup_database():
-    """
-    sets up normalized database tables:
-    - characters
-    - media_types
-    - media_titles
-    - character_media (join table)
-    keeps everything simple and lowercase.
-    """
     conn = get_connection()
     cur = conn.cursor()
 
-    # characters table
     cur.execute("""
-        create table if not exists characters (
-            id integer primary key,
-            name text,
-            image_url text
+        CREATE TABLE IF NOT EXISTS characters (
+            id INTEGER PRIMARY KEY,
+            name TEXT,
+            image_url TEXT
         );
     """)
 
-    # media types table (one row per media type)
     cur.execute("""
-        create table if not exists media_types (
-            type_id integer primary key autoincrement,
-            type_name text unique
+        CREATE TABLE IF NOT EXISTS media_types (
+            type_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type_name TEXT UNIQUE
         );
     """)
 
-    # media titles table (one row per title)
     cur.execute("""
-        create table if not exists media_titles (
-            title_id integer primary key autoincrement,
-            title text unique
+        CREATE TABLE IF NOT EXISTS media_titles (
+            title_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT UNIQUE
         );
     """)
 
-    # join table: which character appears in which title and which type
     cur.execute("""
-        create table if not exists character_media (
-            id integer primary key autoincrement,
-            character_id integer,
-            type_id integer,
-            title_id integer,
-            unique(character_id, type_id, title_id)
+        CREATE TABLE IF NOT EXISTS character_media (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            character_id INTEGER,
+            type_id INTEGER,
+            title_id INTEGER,
+            UNIQUE(character_id, type_id, title_id)
         );
     """)
 
     conn.commit()
     conn.close()
 
-def seed_media_types():
-    """ensure the five common media types exist in media_types table."""
+def seed_media_types(cur):
     types = ["films", "shortFilms", "tvShows", "videoGames", "parkAttractions"]
-    conn = get_connection()
-    cur = conn.cursor()
     for t in types:
-        cur.execute("insert or ignore into media_types (type_name) values (?);", (t,))
-    conn.commit()
-    conn.close()
+        cur.execute(
+            "INSERT OR IGNORE INTO media_types (type_name) VALUES (?);",
+            (t,)
+        )
 
-def get_existing_character_ids():
-    """return set of character ids already in database."""
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("select id from characters;")
-    rows = cur.fetchall()
-    conn.close()
-    return {r[0] for r in rows}
+def get_existing_character_ids(cur):
+    cur.execute("SELECT id FROM characters;")
+    return {r[0] for r in cur.fetchall()}
 
 def get_type_id(type_name, cur):
-    """return the type_id for a media type, inserting if missing."""
-    cur.execute("select type_id from media_types where type_name = ?;", (type_name,))
-    r = cur.fetchone()
-    if r:
-        return r[0]
-    cur.execute("insert into media_types (type_name) values (?);", (type_name,))
-    return cur.lastrowid
+    cur.execute(
+        "SELECT type_id FROM media_types WHERE type_name = ?;",
+        (type_name,)
+    )
+    return cur.fetchone()[0]
 
 def get_title_id(title, cur):
-    """return the title_id for a media title, inserting if missing."""
-    cur.execute("select title_id from media_titles where title = ?;", (title,))
-    r = cur.fetchone()
-    if r:
-        return r[0]
-    cur.execute("insert into media_titles (title) values (?);", (title,))
+    cur.execute(
+        "SELECT title_id FROM media_titles WHERE title = ?;",
+        (title,)
+    )
+    row = cur.fetchone()
+    if row:
+        return row[0]
+
+    cur.execute(
+        "INSERT INTO media_titles (title) VALUES (?);",
+        (title,)
+    )
     return cur.lastrowid
 
 def store_characters():
-    """
-    fetch up to 25 new characters from the disney api and store them normalized.
-    - characters go to characters
-    - media types go to media_types (seeded)
-    - titles go to media_titles
-    - character appearances go to character_media (join table)
-    duplicates are avoided by checking existing ids and unique constraints.
-    """
     setup_database()
-    seed_media_types()
-    existing = get_existing_character_ids()
-
-    url = "https://api.disneyapi.dev/character"
-    page = 1
-    added = 0
-
     conn = get_connection()
     cur = conn.cursor()
 
-    while added < 25:
-        response = requests.get(url + "?page=" + str(page))
+    seed_media_types(cur)
+    existing = get_existing_character_ids(cur)
+
+    url = "https://api.disneyapi.dev/character"
+    page = 1
+
+    character_added = 0
+    media_added = 0
+    titles_added = 0
+
+    MAX_PER_RUN = 25
+
+    while character_added < MAX_PER_RUN and media_added < MAX_PER_RUN:
+        response = requests.get(f"{url}?page={page}")
         if response.status_code != 200:
             break
+
         data = response.json()
         if "data" not in data or not data["data"]:
             break
 
         for character in data["data"]:
-            cid = character.get("_id")
+            if character_added >= MAX_PER_RUN:
+                break
+
+            cid = character["_id"]
             if cid in existing:
                 continue
 
-            # insert character
-            cur.execute(
-                "insert or ignore into characters (id, name, image_url) values (?, ?, ?);",
-                (cid, character.get("name"), character.get("imageUrl"))
-            )
+            cur.execute("""
+                INSERT OR IGNORE INTO characters (id, name, image_url)
+                VALUES (?, ?, ?);
+            """, (cid, character.get("name"), character.get("imageUrl")))
 
-            # for each media type and title, insert into media_titles and character_media
+            character_added += 1
+            existing.add(cid)
+
             media_lists = {
                 "films": character.get("films", []),
                 "shortFilms": character.get("shortFilms", []),
@@ -145,30 +130,41 @@ def store_characters():
             }
 
             for m_type, titles in media_lists.items():
-                if not titles:
-                    continue
-                # get type_id (should exist from seed or insert)
+                if media_added >= MAX_PER_RUN:
+                    break
+
                 type_id = get_type_id(m_type, cur)
+
                 for title in titles:
-                    # get or insert title
+                    if media_added >= MAX_PER_RUN:
+                        break
+
+                    # insert title if needed
+                    before = titles_added
                     title_id = get_title_id(title, cur)
-                    # insert into join table, unique constraint prevents duplicates
+                    if cur.rowcount > 0:
+                        titles_added += 1
+                        if titles_added > MAX_PER_RUN:
+                            break
+
                     cur.execute("""
-                        insert or ignore into character_media (character_id, type_id, title_id)
-                        values (?, ?, ?);
+                        INSERT OR IGNORE INTO character_media
+                        (character_id, type_id, title_id)
+                        VALUES (?, ?, ?);
                     """, (cid, type_id, title_id))
 
-            added += 1
-            existing.add(cid)
-
-            if added >= 25:
-                break
+                    if cur.rowcount > 0:
+                        media_added += 1
 
         page += 1
 
     conn.commit()
     conn.close()
-    print(f"stored {added} new disney characters in {DB_NAME}")
+
+    print("Run summary:")
+    print("characters added:", character_added)
+    print("media rows added:", media_added)
+    print("titles added:", titles_added)
 
 if __name__ == "__main__":
     store_characters()
