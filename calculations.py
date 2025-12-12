@@ -4,18 +4,22 @@ DB_NAME = "final_project.db"
 
 def calculate_character_stats(db_path=DB_NAME):
     """
-    calculates simple stats about disney characters.
+    calculates simple stats using normalized tables:
+    - total appearances per character (count of rows in character_media)
+    - average appearances
+    - top 10 characters by appearances
+    writes results to calculated_stats.txt
     """
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
+    # total media appearances per character (count of join rows)
     cur.execute("""
-        SELECT c.name, COUNT(m.media_id) AS count
-        FROM characters c
-        LEFT JOIN mediaappearances m
-        ON c.id = m.character_id
-        GROUP BY c.id
-        ORDER BY count DESC;
+        select c.name, count(cm.id) as total
+        from characters c
+        left join character_media cm on c.id = cm.character_id
+        group by c.id
+        order by total desc;
     """)
     results = cur.fetchall()
 
@@ -25,7 +29,7 @@ def calculate_character_stats(db_path=DB_NAME):
 
     top_10 = results[:10]
 
-    # write file
+    # write to text file
     with open("calculated_stats.txt", "w") as f:
         f.write("character media appearance statistics\n")
         f.write("--------------------------------------\n\n")
@@ -43,31 +47,27 @@ def calculate_character_stats(db_path=DB_NAME):
         "top_10": top_10
     }
 
-
 def calculate_media_spread(db_path=DB_NAME):
     """
-    calculates media spread score for each character (0–5).
+    calculates media spread score (0-5) for each character:
+    count distinct media types per character (via character_media -> media_types)
+    returns top 10 characters by spread
     """
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT c.name,
-            (CASE WHEN EXISTS(SELECT 1 FROM mediaappearances m WHERE m.character_id = c.id AND m.media_type='films') THEN 1 ELSE 0 END +
-             CASE WHEN EXISTS(SELECT 1 FROM mediaappearances m WHERE m.character_id = c.id AND m.media_type='shortFilms') THEN 1 ELSE 0 END +
-             CASE WHEN EXISTS(SELECT 1 FROM mediaappearances m WHERE m.character_id = c.id AND m.media_type='tvShows') THEN 1 ELSE 0 END +
-             CASE WHEN EXISTS(SELECT 1 FROM mediaappearances m WHERE m.character_id = c.id AND m.media_type='videoGames') THEN 1 ELSE 0 END +
-             CASE WHEN EXISTS(SELECT 1 FROM mediaappearances m WHERE m.character_id = c.id AND m.media_type='parkAttractions') THEN 1 ELSE 0 END)
-            AS spread
-        FROM characters c
-        ORDER BY spread DESC
-        LIMIT 10;
+        select c.name,
+               count(distinct cm.type_id) as spread
+        from characters c
+        left join character_media cm on c.id = cm.character_id
+        group by c.id
+        order by spread desc
+        limit 10;
     """)
-
     results = cur.fetchall()
     conn.close()
     return results
-
 
 if __name__ == "__main__":
     calculate_character_stats()
