@@ -1,0 +1,17 @@
+character media appearance statistics
+--------------------------------------
+
+total characters analyzed: 425
+average number of media appearances: 1.00
+
+top 10 characters by media appearances:
+- Baymax: 25 appearances
+- Hector Barbossa: 23 appearances
+- Baloo: 22 appearances
+- Anna: 19 appearances
+- Queen Arianna: 14 appearances
+- Addison Wells: 12 appearances
+- Archimedes: 12 appearances
+- Dawn Bellwether: 12 appearances
+- Alligators: 8 appearances
+- Apatosaurus: 8 appearances
