@@ -1,17 +1,17 @@
 character media appearance statistics
 --------------------------------------
 
-total characters analyzed: 475
-average number of media appearances: 3.08
+total characters analyzed: 425
+average number of media appearances: 1.00
 
 top 10 characters by media appearances:
-- Aladdin: 68 appearances
-- Belle: 64 appearances
-- Alice: 56 appearances
-- Anna: 55 appearances
-- Aurora: 49 appearances
-- Bashful: 40 appearances
-- Baloo: 37 appearances
-- Baymax: 37 appearances
-- Abu: 34 appearances
-- Hector Barbossa: 26 appearances
+- Baymax: 25 appearances
+- Hector Barbossa: 23 appearances
+- Baloo: 22 appearances
+- Anna: 19 appearances
+- Queen Arianna: 14 appearances
+- Addison Wells: 12 appearances
+- Archimedes: 12 appearances
+- Dawn Bellwether: 12 appearances
+- Alligators: 8 appearances
+- Apatosaurus: 8 appearances
