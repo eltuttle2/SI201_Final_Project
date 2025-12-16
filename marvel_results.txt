@@ -1,0 +1,40 @@
+Top 10 Heroes by Power Index
+----------------------------------------
+  80  Beyonder                   power_index = 97.33
+  81  Big Barda                  power_index = 94.50
+ 204  Darkseid                   power_index = 94.33
+  20  Amazo                      power_index = 91.00
+ 156  Captain Marvel             power_index = 91.00
+ 232  Dormammu                   power_index = 91.00
+ 253  Faora                      power_index = 91.00
+ 195  Cyborg Superman            power_index = 90.00
+  95  Black Adam                 power_index = 89.33
+ 273  Galactus                   power_index = 88.83
+
+
+Average Powerstats by Alignment
+----------------------------------------
+
+Alignment: good
+  intelligence: 61.83
+  strength    : 33.66
+  speed       : 38.31
+  durability  : 56.54
+  power       : 60.63
+  combat      : 60.67
+
+Alignment: bad
+  intelligence: 65.33
+  strength    : 54.71
+  speed       : 46.47
+  durability  : 69.64
+  power       : 70.40
+  combat      : 70.57
+
+Alignment: neutral
+  intelligence: 60.25
+  strength    : 46.50
+  speed       : 52.88
+  durability  : 78.12
+  power       : 78.62
+  combat      : 60.62
